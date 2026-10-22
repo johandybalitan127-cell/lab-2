@@ -1,6 +1,6 @@
 // ============================================================================
 // ARCHIVO: frontend/src/components/Navbar.jsx
-// DESCRIPCIÓN: Barra de navegación principal con enlaces de React Router
+// DESCRIPCIÓN: Barra de navegación principal con diseño boutique femenino
 // ============================================================================
 import React from 'react';
 import { NavLink } from 'react-router-dom';
@@ -10,10 +10,10 @@ export function Navbar() {
     <header className="navbar">
       <div className="navbar-inner">
         <NavLink to="/" className="brand">
-          <span className="brand-icon">☕</span>
+          <span className="brand-icon">🌸</span>
           <div className="brand-text">
             <h2>Aroma & Código</h2>
-            <span>Cafetería POS & Lab #2</span>
+            <span>Café Boutique & Bakery ✨</span>
           </div>
         </NavLink>
 
@@ -26,12 +26,12 @@ export function Navbar() {
             </li>
             <li>
               <NavLink to="/productos" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span>📦</span> <span className="text">Productos</span>
+                <span>🧁</span> <span className="text">Menú & Productos</span>
               </NavLink>
             </li>
             <li>
               <NavLink to="/pos" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span>🧾</span> <span className="text">Punto de Venta</span>
+                <span>🛍️</span> <span className="text">Punto de Venta</span>
               </NavLink>
             </li>
             <li>
@@ -41,7 +41,7 @@ export function Navbar() {
             </li>
             <li>
               <NavLink to="/asistente-ia" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span>🤖</span> <span className="text">Agente IA</span>
+                <span>✨</span> <span className="text">Agente IA</span>
               </NavLink>
             </li>
           </ul>
