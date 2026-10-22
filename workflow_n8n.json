@@ -2,6 +2,30 @@
   "name": "Asistente IA - Cafetería Aroma & Código",
   "nodes": [
     {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ],
+      "id": "node-manual-trigger",
+      "name": "Al hacer clic en 'Test workflow'"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simulación de datos para pruebas dentro de n8n\nreturn {\n  json: {\n    body: {\n      consulta: \"Analiza los productos con stock crítico y sugiere orden de compra\",\n      contexto: {\n        modo: \"Prueba manual en n8n\",\n        tienda: \"Cafetería Aroma & Código\"\n      }\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        180
+      ],
+      "id": "node-datos-prueba",
+      "name": "Datos de Prueba Manual"
+    },
+    {
       "parameters": {
         "httpMethod": "POST",
         "path": "asistente-cafeteria",
@@ -11,21 +35,21 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        200,
-        300
+        220,
+        380
       ],
       "id": "node-webhook-trigger",
       "name": "Webhook de Entrada"
     },
     {
       "parameters": {
-        "jsCode": "// 1. VALIDACIÓN DE ENTRADA\nconst body = $json.body || $json;\n\nif (!body.consulta || typeof body.consulta !== 'string' || body.consulta.trim() === '') {\n  return {\n    json: {\n      esValido: false,\n      error: 'La consulta es obligatoria y debe ser un texto válido.'\n    }\n  };\n}\n\nreturn {\n  json: {\n    esValido: true,\n    consulta: body.consulta.trim(),\n    contexto: body.contexto || {}\n  }\n};"
+        "jsCode": "// 1. VALIDACIÓN DE ENTRADA (Acepta datos del Webhook o del botón Test)\nconst raw = $json.body || $json;\nconst consulta = raw.consulta || (typeof raw === 'string' ? raw : '');\n\nif (!consulta || typeof consulta !== 'string' || consulta.trim() === '') {\n  return {\n    json: {\n      esValido: false,\n      error: 'La consulta es obligatoria y debe ser un texto válido.'\n    }\n  };\n}\n\nreturn {\n  json: {\n    esValido: true,\n    consulta: consulta.trim(),\n    contexto: raw.contexto || {}\n  }\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        420,
-        300
+        460,
+        280
       ],
       "id": "node-validar-entrada",
       "name": "Validar Consulta"
@@ -44,8 +68,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        640,
-        300
+        680,
+        280
       ],
       "id": "node-if-valido",
       "name": "¿Datos Válidos?"
@@ -61,8 +85,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        880,
-        480
+        920,
+        460
       ],
       "id": "node-respond-error-400",
       "name": "Respuesta Error 400"
@@ -75,8 +99,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        880,
-        220
+        920,
+        200
       ],
       "id": "node-http-productos",
       "name": "Consultar API Productos",
@@ -84,13 +108,13 @@
     },
     {
       "parameters": {
-        "jsCode": "// 3. AGENTE DE NEGOCIO & FORMATEO DE RESPUESTA\n// Procesa la consulta del usuario y los productos recibidos de la base de datos\nconst consulta = $('Validar Consulta').item.json.consulta.toLowerCase();\nconst contexto = $('Validar Consulta').item.json.contexto || {};\n\n// Obtener la lista de productos de la API (o del contexto si la API no estuviera accesible)\nlet productos = [];\nif (Array.isArray($input.all())) {\n  productos = $input.all().map(item => item.json);\n} else if (contexto.productos_en_alerta) {\n  productos = contexto.productos_en_alerta;\n}\n\n// Identificar productos críticos (stock <= stock_minimo)\nconst criticos = productos.filter(p => p.stock !== undefined && p.stock_minimo !== undefined && p.stock <= p.stock_minimo);\n\nlet textoRespuesta = '';\n\nif (consulta.includes('compra') || consulta.includes('reabastecimiento') || consulta.includes('stock')) {\n  if (criticos.length === 0) {\n    textoRespuesta = '📋 **INFORME DE REABASTECIMIENTO:**\\n\\nTodos los productos del menú cuentan con existencias saludables. No se requieren órdenes de compra urgentes.';\n  } else {\n    const items = criticos.map(p => \n      `- **${p.nombre}** (Stock actual: ${p.stock} unid. / Mínimo: ${p.stock_minimo})\\n  👉 *Acción sugerida:* Pedir lote de **${(p.stock_minimo * 3) - p.stock} unidades** para cubrir los próximos 10 días de venta.`\n    ).join('\\n\\n');\n\n    textoRespuesta = `📋 **PLAN DE REABASTECIMIENTO PRIORITARIO:**\\n\\nSe detectaron ${criticos.length} productos con inventario igual o inferior a su umbral crítico:\\n\\n${items}\\n\\n💡 *Recomendación logística:* Priorizar el pedido de repostería con el proveedor local para garantizar productos frescos al amanecer.`;\n  }\n} else if (consulta.includes('promo') || consulta.includes('combo') || consulta.includes('venta')) {\n  textoRespuesta = `🏷️ **ESTRATEGIA DE PROMOCIONES Y COMBOS DEL DÍA:**\\n\\n1. **Combo Despertar Tech ($5.25 - Ahorro 15%):**\\n   - Café Americano 12oz + Croissant de Mantequilla recién horneado.\\n   - *Objetivo:* Impulsar la rotación matutina y aumentar la afluencia.\\n\\n2. **Dúo Dulce Tarde ($6.50 Especial):**\\n   - Cappuccino Italiano 8oz + Muffin de Arándanos.\\n   - *Objetivo:* Elevar el ticket promedio por encima de $6.00 aprovechando la repostería del día.`;\n} else {\n  textoRespuesta = `☕ **ASISTENTE DE CAFETERÍA 'AROMA & CÓDIGO':**\\n\\nHe analizado tu consulta: \"${$('Validar Consulta').item.json.consulta}\".\\n\\n- Total productos en catálogo: **${productos.length}**\\n- Productos con alerta de stock crítico: **${criticos.length}**\\n\\nPuedes pedirme: \"Sugerir orden de compra\" o \"Generar promociones para hoy\".`;\n}\n\n// Retornar estrictamente el contrato exigido por el laboratorio\nreturn {\n  json: {\n    ok: true,\n    data: {\n      mensaje: textoRespuesta,\n      timestamp: new Date().toISOString(),\n      agente: 'Agente IA Autónomo - Aroma & Código'\n    },\n    error: null\n  }\n};"
+        "jsCode": "// 3. AGENTE IA DE NEGOCIO & FORMATEO DE RESPUESTA\nconst consulta = $('Validar Consulta').item.json.consulta.toLowerCase();\n\n// Obtener los productos reales de la API\nlet items = $input.all().map(i => i.json);\nlet productos = Array.isArray(items[0]) ? items[0] : items;\n\n// Filtrar productos con stock <= stock_minimo\nconst criticos = productos.filter(p => p.stock !== undefined && p.stock_minimo !== undefined && p.stock <= p.stock_minimo);\n\nlet textoRespuesta = '';\n\nif (consulta.includes('compra') || consulta.includes('reabastecimiento') || consulta.includes('stock')) {\n  if (criticos.length === 0) {\n    textoRespuesta = '📋 **INFORME DE REABASTECIMIENTO:**\\n\\nTodos los productos del inventario cuentan con existencias suficientes. No se requieren compras de urgencia.';\n  } else {\n    const lineas = criticos.map(p => \n      `- **${p.nombre}** (Categoría: ${p.categoria_nombre || 'General'})\\n  Existencias: **${p.stock} unid.** | Mínimo: ${p.stock_minimo}\\n  👉 *Recomendación:* Comprar lote de **${(p.stock_minimo * 3) - p.stock} unidades** para garantizar 10 días de venta.`\n    ).join('\\n\\n');\n\n    textoRespuesta = `📋 **PLAN DE REABASTECIMIENTO PRIORITARIO:**\\n\\nSe detectaron ${criticos.length} productos con inventario crítico:\\n\\n${lineas}\\n\\n💡 *Consejo Logístico:* Contactar al proveedor temprano para asegurar la entrega de repostería fresca.`;\n  }\n} else if (consulta.includes('promo') || consulta.includes('combo') || consulta.includes('venta')) {\n  textoRespuesta = `🏷️ **PROPUESTA DE COMBOS Y PROMOCIONES:**\\n\\n1. **Combo Despertar ($5.25 - 15% OFF):**\\n   - Café Americano 12oz + Croissant de Mantequilla recién horneado.\\n   - *Objetivo:* Agilizar la salida de repostería matutina.\\n\\n2. **Dúo Dulce Tarde ($6.50 Especial):**\\n   - Cappuccino Italiano 8oz + Muffin de Arándanos.\\n   - *Objetivo:* Elevar el ticket promedio por encima de los $6.00.`;\n} else {\n  textoRespuesta = `☕ **ASISTENTE DE CAFETERÍA 'AROMA & CÓDIGO':**\\n\\nConsulta procesada: \"${$('Validar Consulta').item.json.consulta}\".\\n\\n- Total productos activos: **${productos.length}**\\n- Productos en stock crítico: **${criticos.length}**\\n\\nPuedes consultarme: \"Sugerir orden de compra\" o \"Proponer combos del día\".`;\n}\n\n// CONTRATO ESTRICTO: { ok: true, data: { ... }, error: null }\nreturn {\n  json: {\n    ok: true,\n    data: {\n      mensaje: textoRespuesta,\n      timestamp: new Date().toISOString(),\n      agente: 'Agente IA Autónomo - Aroma & Código'\n    },\n    error: null\n  }\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1120,
-        220
+        1160,
+        200
       ],
       "id": "node-agente-ia-logica",
       "name": "Agente IA (Razonamiento)"
@@ -106,14 +130,36 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1360,
-        220
+        1400,
+        200
       ],
       "id": "node-respond-exito-200",
       "name": "Respond to Webhook (200)"
     }
   ],
   "connections": {
+    "Al hacer clic en 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Datos de Prueba Manual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datos de Prueba Manual": {
+      "main": [
+        [
+          {
+            "node": "Validar Consulta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Webhook de Entrada": {
       "main": [
         [
