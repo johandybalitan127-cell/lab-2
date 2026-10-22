@@ -1,0 +1,183 @@
+{
+  "name": "Asistente IA - Cafetería Aroma & Código",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asistente-cafeteria",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ],
+      "id": "node-webhook-trigger",
+      "name": "Webhook de Entrada"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. VALIDACIÓN DE ENTRADA\nconst body = $json.body || $json;\n\nif (!body.consulta || typeof body.consulta !== 'string' || body.consulta.trim() === '') {\n  return {\n    json: {\n      esValido: false,\n      error: 'La consulta es obligatoria y debe ser un texto válido.'\n    }\n  };\n}\n\nreturn {\n  json: {\n    esValido: true,\n    consulta: body.consulta.trim(),\n    contexto: body.contexto || {}\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ],
+      "id": "node-validar-entrada",
+      "name": "Validar Consulta"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.esValido }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ],
+      "id": "node-if-valido",
+      "name": "¿Datos Válidos?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": false,\n  \"data\": null,\n  \"error\": \"{{ $json.error }}\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        480
+      ],
+      "id": "node-respond-error-400",
+      "name": "Respuesta Error 400"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:4000/api/productos",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        220
+      ],
+      "id": "node-http-productos",
+      "name": "Consultar API Productos",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 3. AGENTE DE NEGOCIO & FORMATEO DE RESPUESTA\n// Procesa la consulta del usuario y los productos recibidos de la base de datos\nconst consulta = $('Validar Consulta').item.json.consulta.toLowerCase();\nconst contexto = $('Validar Consulta').item.json.contexto || {};\n\n// Obtener la lista de productos de la API (o del contexto si la API no estuviera accesible)\nlet productos = [];\nif (Array.isArray($input.all())) {\n  productos = $input.all().map(item => item.json);\n} else if (contexto.productos_en_alerta) {\n  productos = contexto.productos_en_alerta;\n}\n\n// Identificar productos críticos (stock <= stock_minimo)\nconst criticos = productos.filter(p => p.stock !== undefined && p.stock_minimo !== undefined && p.stock <= p.stock_minimo);\n\nlet textoRespuesta = '';\n\nif (consulta.includes('compra') || consulta.includes('reabastecimiento') || consulta.includes('stock')) {\n  if (criticos.length === 0) {\n    textoRespuesta = '📋 **INFORME DE REABASTECIMIENTO:**\\n\\nTodos los productos del menú cuentan con existencias saludables. No se requieren órdenes de compra urgentes.';\n  } else {\n    const items = criticos.map(p => \n      `- **${p.nombre}** (Stock actual: ${p.stock} unid. / Mínimo: ${p.stock_minimo})\\n  👉 *Acción sugerida:* Pedir lote de **${(p.stock_minimo * 3) - p.stock} unidades** para cubrir los próximos 10 días de venta.`\n    ).join('\\n\\n');\n\n    textoRespuesta = `📋 **PLAN DE REABASTECIMIENTO PRIORITARIO:**\\n\\nSe detectaron ${criticos.length} productos con inventario igual o inferior a su umbral crítico:\\n\\n${items}\\n\\n💡 *Recomendación logística:* Priorizar el pedido de repostería con el proveedor local para garantizar productos frescos al amanecer.`;\n  }\n} else if (consulta.includes('promo') || consulta.includes('combo') || consulta.includes('venta')) {\n  textoRespuesta = `🏷️ **ESTRATEGIA DE PROMOCIONES Y COMBOS DEL DÍA:**\\n\\n1. **Combo Despertar Tech ($5.25 - Ahorro 15%):**\\n   - Café Americano 12oz + Croissant de Mantequilla recién horneado.\\n   - *Objetivo:* Impulsar la rotación matutina y aumentar la afluencia.\\n\\n2. **Dúo Dulce Tarde ($6.50 Especial):**\\n   - Cappuccino Italiano 8oz + Muffin de Arándanos.\\n   - *Objetivo:* Elevar el ticket promedio por encima de $6.00 aprovechando la repostería del día.`;\n} else {\n  textoRespuesta = `☕ **ASISTENTE DE CAFETERÍA 'AROMA & CÓDIGO':**\\n\\nHe analizado tu consulta: \"${$('Validar Consulta').item.json.consulta}\".\\n\\n- Total productos en catálogo: **${productos.length}**\\n- Productos con alerta de stock crítico: **${criticos.length}**\\n\\nPuedes pedirme: \"Sugerir orden de compra\" o \"Generar promociones para hoy\".`;\n}\n\n// Retornar estrictamente el contrato exigido por el laboratorio\nreturn {\n  json: {\n    ok: true,\n    data: {\n      mensaje: textoRespuesta,\n      timestamp: new Date().toISOString(),\n      agente: 'Agente IA Autónomo - Aroma & Código'\n    },\n    error: null\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        220
+      ],
+      "id": "node-agente-ia-logica",
+      "name": "Agente IA (Razonamiento)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1360,
+        220
+      ],
+      "id": "node-respond-exito-200",
+      "name": "Respond to Webhook (200)"
+    }
+  ],
+  "connections": {
+    "Webhook de Entrada": {
+      "main": [
+        [
+          {
+            "node": "Validar Consulta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Consulta": {
+      "main": [
+        [
+          {
+            "node": "¿Datos Válidos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Datos Válidos?": {
+      "main": [
+        [
+          {
+            "node": "Consultar API Productos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta Error 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar API Productos": {
+      "main": [
+        [
+          {
+            "node": "Agente IA (Razonamiento)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente IA (Razonamiento)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook (200)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

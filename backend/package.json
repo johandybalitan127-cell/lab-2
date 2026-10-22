@@ -1,0 +1,21 @@
+{
+  "name": "cafeteria-backend",
+  "version": "1.0.0",
+  "description": "Backend API REST con Express y SQLite para Cafetería Aroma & Código",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js",
+    "db:init": "node init_db.js",
+    "test": "node test_api.js"
+  },
+  "keywords": ["express", "sqlite", "rest-api", "n8n"],
+  "author": "Laboratorio 2",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}
